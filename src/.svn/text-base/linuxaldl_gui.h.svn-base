@@ -1,0 +1,206 @@
+#ifndef LINUXALDL_GUI_INCLUDED
+#define LINUXALDL_GUI_INCLUDED
+
+/*(C) copyright 2008, Steven Snyder, All Rights Reserved
+
+Steven T. Snyder, <stsnyder@ucla.edu> http://www.steventsnyder.com
+
+LICENSING INFORMATION:
+ This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include <gtk/gtk.h>
+#include "linuxaldl.h"
+#include <stdio.h>
+
+typedef enum _aldl_log_format { ALDL_LOG_RAW, ALDL_LOG_CSV } aldl_log_format_t;
+
+//  linuxaldl GUI-specific settings/data struct
+// ============================================
+typedef struct _linuxaldl_gui_settings
+{
+	GtkWidget** data_readout_labels; // array of pointers to the data labels for the definition.
+									 // this is dynamically allocated by the program.
+									 // data_readout_labels[i] points to the label that
+									 // contains a string representation of the value of
+									 // the data element described by definition->mode1_def[i].
+									 // where mode1_def[j] defines a label/seperator,
+									 // the value of data_readout_labels[j] is undefined.
+
+	struct timeval data_timestamp;			// timestamp for data_set
+
+	aldl_log_format_t log_format; // log file format.
+
+	FILE* slogfile; // log file stream for CSV format. not used for raw log file format.
+
+	int scanning_tag; // the tag returned by gtk_timeout_add for the interval scan
+} linuxaldl_gui_settings;
+
+//  linuxaldl GUI function prototypes 
+// ==================================================================
+
+
+// ==================================
+//   main GUI function
+// ==================================
+int linuxaldl_gui(int argc, char* argv[]);
+// runs the linuxaldl GTK+ graphical user interface 
+
+
+
+// ===================================
+//    EXIT / DELETE_EVENT
+// ===================================
+
+static gboolean linuxaldl_gui_quit( GtkWidget *widget, GdkEvent *event, gpointer data);
+// called on delete_event, closes the connection (if there is one)
+// and call gtk_main_quit(). if a transfer is currently in progress,
+// should pop up a dialogue to confirm quitting.
+
+static gboolean hide_on_delete( GtkWidget *widget, GdkEvent *event, gpointer data);
+// hides the window then returns TRUE so that a window is not destroyed on a delete event
+
+// ===================================
+//    SCAN OPERATION FOR GUI MODE
+// ===================================
+
+
+
+static void linuxaldl_gui_scan_interval_changed( GtkAdjustment *adj, gpointer data);
+// callback for change in the adjustment for the aldl_settings.scan_interval field.
+// if scanning is not taking place, does nothing except store the new values and enforce
+// timeout/ scan interval constraints (interval must be at least 20msec more than timeout).
+// otherwise it reassigns the scan interval to the new value immediately.
+// adj must point to the GtkAdjustment for the scan interval.
+
+
+gint linuxaldl_gui_scan_on_interval(gpointer data);
+// callback for gtk_timeout interval timer. if aldl_settings.scanning == 1 
+// then this function will call linuxaldl_gui_scan
+
+static void linuxaldl_gui_scan_toggle( GtkWidget *widget, gpointer data);
+// starts/stops scanning. output is written to the log file if one was specified
+// otherwise it is written to stdout.
+
+static void linuxaldl_gui_scan(GtkWidget *widget, gpointer data);
+// performs a single scan operation (one mode1 message, updates/logs data)
+
+
+static void linuxaldl_gui_stop( GtkWidget *widget, gpointer data);
+// stops scanning. this causes aldl_scan_and_log to return.
+
+
+// ==========================================================================
+//
+//     GUI accessory windows
+//
+// ==========================================================================
+
+
+// ==================================
+//    Options & Settings window
+// ==================================
+GtkWidget* linuxaldl_gui_options_new();
+// returns a GtkWidget pointer to a new options window
+
+
+// ==================================
+//    Data Display window
+// ==================================
+
+
+GtkWidget* linuxaldl_gui_datareadout_new();
+// returns a GtkWidget pointer to the datareadout window
+
+static void linuxaldl_gui_datareadout_show(GtkWidget* widget, gpointer data);
+// shows the data display window, setting it up for the current definition.
+// data must point to the data display window object generated by
+// the linuxaldl_gui_datareadout_new function.
+// this function builds the data display window,
+// and allocates aldl_settings.data_readout_labels
+
+
+static void linuxaldl_gui_datareadout_update(GtkWidget* widget, gpointer data);
+// updates the data display window, refreshing it with the current data values.
+// this function will check if aldl_settings.data_readout_labels
+// has been allocated yet before it tries to update the values.
+// if it has not yet been allocated, it returns doing nothing.
+// .csv log file updating is also done here.
+
+
+// ===================================
+//    LOAD .LOG FILE SELECTION
+// ===================================
+
+static void linuxaldl_gui_load( GtkWidget *widget, GtkFileSelection *fs);
+// load a log file to view/playback. XXX NOT YET IMPLEMENTED.
+
+// ===================================
+//    SAVE .LOG FILE SELECTION
+// ===================================
+
+static void linuxaldl_gui_save( GtkWidget *widget, GtkFileSelection *fs);
+// selects a log file to save to.
+
+
+// =======================
+//	 CSV FORMAT LOGGING
+// =======================
+static void linuxaldl_gui_write_csv_header();
+// write the header line to the csv file
+
+static void linuxaldl_gui_write_csv_line();
+// write a data line for the csv file
+
+static void linuxaldl_gui_widgetshow(GtkWidget *widget, gpointer data);
+// calls gtk_widget_show on the widget specified in the data argument 
+
+static void linuxaldl_gui_widgethide(GtkWidget *widget, gpointer data);
+// calls gtk_widget_hide on the widget specified in the data argument 
+
+
+// ==================================
+//    Definition selection dialog
+// ==================================
+
+
+static void linuxaldl_gui_try_choosedef( GtkWidget *widget, gpointer data);
+// opens the definition selection dialog if no definition has been selected,
+// otherwise pops up an alert and returns
+
+GtkWidget* linuxaldl_gui_choosedef_new();
+// returns a GtkWidget pointer to the definition selection dialog
+// for the definition table in the global "aldl_settings" struct
+
+
+static void linuxaldl_gui_load_definition( GtkWidget *widget, gpointer data);
+// refreshes the definition in aldl_settings based on the definition name chosen in 
+// the choose definition gui dialogue
+
+// ==================================
+//    Alert Window Popup
+// ==================================
+void quick_alert(gchar *message);
+// pops up an alert with message in the body and an ok button.
+// the alert will block access to other windows until the button is clicked.
+// background activity will continue.
+
+// ==============================
+//  Adjustment scale with label
+// ==============================
+// returns a vbox containing a horizontal scale with a new adjustment
+// with range min to max and step size step that starts out with the initial value init_val.
+// the adjustment calls the function change_callback when the value changes.
+GtkWidget* hscale_new_with_label(gdouble init_val, gdouble min, gdouble max, gdouble step, GtkSignalFunc changed, gchar *adj_label);
+#endif
